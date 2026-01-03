@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LinkedIn CRM Pipeline</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="logo">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path>
+          <rect x="2" y="9" width="4" height="12"></rect>
+          <circle cx="4" cy="4" r="2"></circle>
+        </svg>
+        <span>LinkedIn CRM</span>
+      </div>
+
+      <nav class="nav-menu">
+        <a href="#" class="nav-item active" data-view="dashboard">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+          Dashboard
+        </a>
+        <a href="#" class="nav-item" data-view="contacts">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
+          Contacts
+        </a>
+        <a href="#" class="nav-item" data-view="pipeline">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="8" y1="6" x2="21" y2="6"></line>
+            <line x1="8" y1="12" x2="21" y2="12"></line>
+            <line x1="8" y1="18" x2="21" y2="18"></line>
+            <line x1="3" y1="6" x2="3.01" y2="6"></line>
+            <line x1="3" y1="12" x2="3.01" y2="12"></line>
+            <line x1="3" y1="18" x2="3.01" y2="18"></line>
+          </svg>
+          Pipeline
+        </a>
+        <a href="#" class="nav-item" data-view="emails">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+            <polyline points="22,6 12,13 2,6"></polyline>
+          </svg>
+          Emails
+        </a>
+        <a href="#" class="nav-item" data-view="import">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+          Import/Export
+        </a>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Dashboard View -->
+      <section id="dashboard-view" class="view active">
+        <header class="view-header">
+          <h1>Dashboard</h1>
+          <button class="btn btn-primary" onclick="showAddContactModal()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            Add Contact
+          </button>
+        </header>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon blue">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+              </svg>
+            </div>
+            <div class="stat-content">
+              <span class="stat-value" id="stat-total">0</span>
+              <span class="stat-label">Total Contacts</span>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon green">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+              </svg>
+            </div>
+            <div class="stat-content">
+              <span class="stat-value" id="stat-week">0</span>
+              <span class="stat-label">Added This Week</span>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon purple">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                <polyline points="22,6 12,13 2,6"></polyline>
+              </svg>
+            </div>
+            <div class="stat-content">
+              <span class="stat-value" id="stat-emails-sent">0</span>
+              <span class="stat-label">Emails Sent</span>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon orange">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+            </div>
+            <div class="stat-content">
+              <span class="stat-value" id="stat-followups">0</span>
+              <span class="stat-label">Pending Follow-ups</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="dashboard-grid">
+          <div class="card pipeline-overview">
+            <h3>Pipeline Overview</h3>
+            <div id="pipeline-chart" class="pipeline-bars"></div>
+          </div>
+
+          <div class="card email-stats">
+            <h3>Email Performance</h3>
+            <div class="email-metrics">
+              <div class="metric">
+                <span class="metric-value" id="email-open-rate">0%</span>
+                <span class="metric-label">Open Rate</span>
+              </div>
+              <div class="metric">
+                <span class="metric-value" id="email-reply-rate">0%</span>
+                <span class="metric-label">Reply Rate</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card recent-activity">
+            <h3>Recent Activity</h3>
+            <div id="activity-feed" class="activity-list"></div>
+          </div>
+
+          <div class="card top-companies">
+            <h3>Top Companies</h3>
+            <div id="companies-list" class="companies-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Contacts View -->
+      <section id="contacts-view" class="view">
+        <header class="view-header">
+          <h1>Contacts</h1>
+          <div class="header-actions">
+            <div class="search-box">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input type="text" id="contact-search" placeholder="Search contacts...">
+            </div>
+            <select id="stage-filter" class="select">
+              <option value="">All Stages</option>
+            </select>
+            <button class="btn btn-primary" onclick="showAddContactModal()">Add Contact</button>
+          </div>
+        </header>
+
+        <div class="contacts-table-wrapper">
+          <table class="contacts-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Company</th>
+                <th>Title</th>
+                <th>Email</th>
+                <th>Stage</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="contacts-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Pipeline View -->
+      <section id="pipeline-view" class="view">
+        <header class="view-header">
+          <h1>Pipeline</h1>
+        </header>
+
+        <div id="pipeline-board" class="pipeline-board"></div>
+      </section>
+
+      <!-- Emails View -->
+      <section id="emails-view" class="view">
+        <header class="view-header">
+          <h1>Email Outreach</h1>
+          <div class="header-actions">
+            <button class="btn btn-secondary" onclick="showTemplatesModal()">Templates</button>
+            <button class="btn btn-primary" onclick="showComposeModal()">Compose Email</button>
+          </div>
+        </header>
+
+        <div class="tabs">
+          <button class="tab active" data-tab="all">All Emails</button>
+          <button class="tab" data-tab="drafts">Drafts</button>
+          <button class="tab" data-tab="sent">Sent</button>
+          <button class="tab" data-tab="followups">Follow-ups Due</button>
+        </div>
+
+        <div class="emails-list" id="emails-list"></div>
+      </section>
+
+      <!-- Import View -->
+      <section id="import-view" class="view">
+        <header class="view-header">
+          <h1>Import & Export</h1>
+        </header>
+
+        <div class="import-export-grid">
+          <div class="card import-card">
+            <h3>Import LinkedIn Connections</h3>
+            <p>Upload your LinkedIn connections CSV file to import contacts.</p>
+            <div class="upload-area" id="upload-area">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+              <p>Drag and drop your CSV file here or click to browse</p>
+              <input type="file" id="csv-input" accept=".csv" hidden>
+            </div>
+            <div id="import-result" class="import-result hidden"></div>
+          </div>
+
+          <div class="card export-card">
+            <h3>Export Contacts</h3>
+            <p>Download your contacts as a CSV file.</p>
+            <div class="export-options">
+              <select id="export-stage" class="select">
+                <option value="">All Contacts</option>
+              </select>
+              <button class="btn btn-primary" onclick="exportContacts()">Export CSV</button>
+            </div>
+          </div>
+
+          <div class="card instructions-card">
+            <h3>How to Export from LinkedIn</h3>
+            <ol>
+              <li>Go to LinkedIn Settings & Privacy</li>
+              <li>Click on "Get a copy of your data"</li>
+              <li>Select "Connections" and request the archive</li>
+              <li>Download the CSV file when ready</li>
+              <li>Upload it here to import your connections</li>
+            </ol>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Modals -->
+  <div id="modal-overlay" class="modal-overlay hidden"></div>
+
+  <!-- Add/Edit Contact Modal -->
+  <div id="contact-modal" class="modal hidden">
+    <div class="modal-header">
+      <h2 id="contact-modal-title">Add Contact</h2>
+      <button class="modal-close" onclick="closeModal('contact-modal')">&times;</button>
+    </div>
+    <form id="contact-form">
+      <input type="hidden" id="contact-id">
+      <div class="form-row">
+        <div class="form-group">
+          <label for="first_name">First Name *</label>
+          <input type="text" id="first_name" required>
+        </div>
+        <div class="form-group">
+          <label for="last_name">Last Name</label>
+          <input type="text" id="last_name">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="email" id="email">
+        </div>
+        <div class="form-group">
+          <label for="phone">Phone</label>
+          <input type="text" id="phone">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="company">Company</label>
+          <input type="text" id="company">
+        </div>
+        <div class="form-group">
+          <label for="title">Title</label>
+          <input type="text" id="title">
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="linkedin_url">LinkedIn URL</label>
+        <input type="url" id="linkedin_url">
+      </div>
+      <div class="form-group">
+        <label for="location">Location</label>
+        <input type="text" id="location">
+      </div>
+      <div class="form-group">
+        <label for="pipeline_stage">Pipeline Stage</label>
+        <select id="pipeline_stage" class="select"></select>
+      </div>
+      <div class="form-group">
+        <label for="notes">Notes</label>
+        <textarea id="notes" rows="3"></textarea>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('contact-modal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Contact</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Compose Email Modal -->
+  <div id="compose-modal" class="modal hidden">
+    <div class="modal-header">
+      <h2>Compose Email</h2>
+      <button class="modal-close" onclick="closeModal('compose-modal')">&times;</button>
+    </div>
+    <form id="compose-form">
+      <div class="form-group">
+        <label for="email-contact">To (Contact)</label>
+        <select id="email-contact" class="select" required></select>
+      </div>
+      <div class="form-group">
+        <label for="email-template">Template</label>
+        <select id="email-template" class="select">
+          <option value="">No template</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="email-subject">Subject *</label>
+        <input type="text" id="email-subject" required>
+      </div>
+      <div class="form-group">
+        <label for="email-body">Message</label>
+        <textarea id="email-body" rows="8"></textarea>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('compose-modal')">Cancel</button>
+        <button type="button" class="btn btn-secondary" onclick="saveEmailDraft()">Save Draft</button>
+        <button type="submit" class="btn btn-primary">Mark as Sent</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Contact Detail Modal -->
+  <div id="detail-modal" class="modal modal-large hidden">
+    <div class="modal-header">
+      <h2 id="detail-modal-title">Contact Details</h2>
+      <button class="modal-close" onclick="closeModal('detail-modal')">&times;</button>
+    </div>
+    <div id="detail-content" class="detail-content"></div>
+  </div>
+
+  <!-- Templates Modal -->
+  <div id="templates-modal" class="modal hidden">
+    <div class="modal-header">
+      <h2>Email Templates</h2>
+      <button class="modal-close" onclick="closeModal('templates-modal')">&times;</button>
+    </div>
+    <div id="templates-list" class="templates-list"></div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="showNewTemplateForm()">Create Template</button>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
