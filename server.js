@@ -23,6 +23,7 @@ async function startServer() {
   // Import routes (they will use the initialized db)
   const contactsRouter = require('./routes/contacts');
   const emailsRouter = require('./routes/emails');
+  const messagesRouter = require('./routes/messages');
   const pipelineRouter = require('./routes/pipeline');
   const importRouter = require('./routes/import');
   const dashboardRouter = require('./routes/dashboard');
@@ -30,6 +31,7 @@ async function startServer() {
   // API Routes
   app.use('/api/contacts', contactsRouter);
   app.use('/api/emails', emailsRouter);
+  app.use('/api/messages', messagesRouter);
   app.use('/api/pipeline', pipelineRouter);
   app.use('/api/import', importRouter);
   app.use('/api/dashboard', dashboardRouter);

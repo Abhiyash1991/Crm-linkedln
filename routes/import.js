@@ -268,4 +268,148 @@ router.post('/bulk', async (req, res) => {
   }
 });
 
+// Export emails to CSV
+router.get('/export-emails', async (req, res) => {
+  try {
+    if (!db) db = await dbPromise;
+
+    const emails = db.prepare(`
+      SELECT e.*, c.full_name as contact_name, c.company
+      FROM emails e
+      LEFT JOIN contacts c ON e.contact_id = c.id
+      ORDER BY e.created_at DESC
+    `).all();
+
+    const columns = [
+      'contact_name',
+      'company',
+      'subject',
+      'body',
+      'email_type',
+      'status',
+      'sent_at',
+      'opened_at',
+      'replied_at',
+      'follow_up_date',
+      'follow_up_number',
+      'created_at'
+    ];
+
+    stringify(emails, {
+      header: true,
+      columns
+    }, (err, output) => {
+      if (err) {
+        return res.status(500).json({ error: 'Failed to generate CSV' });
+      }
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="emails-export.csv"');
+      res.send(output);
+    });
+  } catch (error) {
+    console.error('Error exporting emails:', error);
+    res.status(500).json({ error: 'Failed to export emails' });
+  }
+});
+
+// Export LinkedIn messages to CSV
+router.get('/export-messages', async (req, res) => {
+  try {
+    if (!db) db = await dbPromise;
+
+    const messages = db.prepare(`
+      SELECT m.*, c.full_name as contact_name, c.company, c.linkedin_url
+      FROM linkedin_messages m
+      LEFT JOIN contacts c ON m.contact_id = c.id
+      ORDER BY m.created_at DESC
+    `).all();
+
+    const columns = [
+      'contact_name',
+      'company',
+      'linkedin_url',
+      'message',
+      'message_type',
+      'status',
+      'sent_at',
+      'replied_at',
+      'follow_up_date',
+      'follow_up_number',
+      'notes',
+      'created_at'
+    ];
+
+    stringify(messages, {
+      header: true,
+      columns
+    }, (err, output) => {
+      if (err) {
+        return res.status(500).json({ error: 'Failed to generate CSV' });
+      }
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="linkedin-messages-export.csv"');
+      res.send(output);
+    });
+  } catch (error) {
+    console.error('Error exporting messages:', error);
+    res.status(500).json({ error: 'Failed to export messages' });
+  }
+});
+
+// Export all data as JSON
+router.get('/export-all', async (req, res) => {
+  try {
+    if (!db) db = await dbPromise;
+
+    const contacts = db.prepare('SELECT * FROM contacts ORDER BY created_at DESC').all();
+    const emails = db.prepare(`
+      SELECT e.*, c.full_name as contact_name
+      FROM emails e
+      LEFT JOIN contacts c ON e.contact_id = c.id
+      ORDER BY e.created_at DESC
+    `).all();
+    const messages = db.prepare(`
+      SELECT m.*, c.full_name as contact_name
+      FROM linkedin_messages m
+      LEFT JOIN contacts c ON m.contact_id = c.id
+      ORDER BY m.created_at DESC
+    `).all();
+    const activities = db.prepare(`
+      SELECT a.*, c.full_name as contact_name
+      FROM activities a
+      LEFT JOIN contacts c ON a.contact_id = c.id
+      ORDER BY a.created_at DESC
+    `).all();
+    const pipelineStages = db.prepare('SELECT * FROM pipeline_stages ORDER BY display_order').all();
+    const emailTemplates = db.prepare('SELECT * FROM email_templates ORDER BY created_at').all();
+    const messageTemplates = db.prepare('SELECT * FROM message_templates ORDER BY created_at').all();
+
+    const exportData = {
+      exported_at: new Date().toISOString(),
+      summary: {
+        total_contacts: contacts.length,
+        total_emails: emails.length,
+        total_messages: messages.length,
+        total_activities: activities.length
+      },
+      contacts,
+      emails,
+      linkedin_messages: messages,
+      activities,
+      pipeline_stages: pipelineStages,
+      email_templates: emailTemplates,
+      message_templates: messageTemplates
+    };
+
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', 'attachment; filename="crm-full-export.json"');
+    res.json(exportData);
+  } catch (error) {
+    console.error('Error exporting all data:', error);
+    res.status(500).json({ error: 'Failed to export all data' });
+  }
+});
+
 module.exports = router;

@@ -870,6 +870,134 @@ body {
   margin-top: 0.25rem;
 }
 
+/* Message Stats Row */
+.message-stats-row {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem 1.5rem;
+  background: white;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.mini-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.mini-stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.mini-stat-label {
+  font-size: 0.75rem;
+  color: var(--gray-500);
+  text-transform: uppercase;
+}
+
+/* Messages List */
+.messages-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.message-item {
+  background: white;
+  border-radius: 0.75rem;
+  padding: 1rem 1.5rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.message-item:hover {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.message-status-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.message-status-icon.draft { background: var(--gray-200); color: var(--gray-600); }
+.message-status-icon.sent { background: #dbeafe; color: #2563eb; }
+.message-status-icon.replied { background: #dcfce7; color: #16a34a; }
+
+.message-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.message-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.5rem;
+}
+
+.message-contact {
+  font-weight: 500;
+  color: var(--gray-900);
+}
+
+.message-type {
+  font-size: 0.75rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 1rem;
+  background: var(--gray-100);
+  color: var(--gray-600);
+}
+
+.message-text {
+  font-size: 0.875rem;
+  color: var(--gray-600);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 500px;
+}
+
+.message-meta {
+  font-size: 0.75rem;
+  color: var(--gray-400);
+  margin-top: 0.5rem;
+}
+
+.message-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.message-preview {
+  font-size: 0.875rem;
+  color: var(--gray-500);
+  margin-top: 0.25rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.template-preview {
+  font-size: 0.875rem;
+  color: var(--gray-500);
+  margin-top: 0.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Utilities */
 .hidden {
   display: none !important;

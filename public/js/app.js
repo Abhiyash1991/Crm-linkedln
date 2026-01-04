@@ -8,6 +8,9 @@ let pipelineStages = [];
 let emails = [];
 let templates = [];
 let currentTab = 'all';
+let messages = [];
+let messageTemplates = [];
+let currentMessageTab = 'all';
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', () => {
@@ -54,6 +57,9 @@ function switchView(viewName) {
       break;
     case 'emails':
       loadEmails();
+      break;
+    case 'messages':
+      loadMessages();
       break;
     case 'import':
       loadExportStages();
@@ -910,6 +916,330 @@ async function exportContacts() {
   const params = stage ? `?stage=${stage}` : '';
 
   window.location.href = `${API_BASE}/import/export${params}`;
+}
+
+// Export emails
+function exportEmails() {
+  window.location.href = `${API_BASE}/import/export-emails`;
+}
+
+// Export messages
+function exportMessages() {
+  window.location.href = `${API_BASE}/import/export-messages`;
+}
+
+// Export all data
+function exportAllData() {
+  window.location.href = `${API_BASE}/import/export-all`;
+}
+
+// LinkedIn Messages
+async function loadMessages(tab = 'all') {
+  try {
+    currentMessageTab = tab;
+    let endpoint = '/messages';
+
+    if (tab === 'followups') {
+      endpoint = '/messages/follow-ups';
+    } else if (tab !== 'all') {
+      endpoint = `/messages?status=${tab}`;
+    }
+
+    const messagesData = await fetchAPI(endpoint);
+    messages = Array.isArray(messagesData) ? messagesData : [];
+    renderMessagesList();
+
+    // Update tabs
+    document.querySelectorAll('[data-msg-tab]').forEach(t => {
+      t.classList.toggle('active', t.dataset.msgTab === tab);
+    });
+
+    // Load stats
+    loadMessageStats();
+  } catch (error) {
+    console.error('Failed to load messages:', error);
+  }
+}
+
+async function loadMessageStats() {
+  try {
+    const stats = await fetchAPI('/messages/stats');
+    document.getElementById('msg-stat-sent').textContent = stats.sent || 0;
+    document.getElementById('msg-stat-replied').textContent = stats.replied || 0;
+    document.getElementById('msg-stat-rate').textContent = `${stats.reply_rate || 0}%`;
+    document.getElementById('msg-stat-followups').textContent = stats.pending_followups || 0;
+  } catch (error) {
+    console.error('Failed to load message stats:', error);
+  }
+}
+
+function renderMessagesList() {
+  const container = document.getElementById('messages-list');
+
+  if (messages.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 3rem; color: var(--gray-500);">
+        No messages found. Start your outreach by sending a LinkedIn message!
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = messages.map(msg => {
+    const statusClass = msg.replied_at ? 'replied' : msg.status;
+
+    return `
+      <div class="message-item">
+        <div class="email-status-icon ${statusClass}">
+          ${getMessageIcon(statusClass)}
+        </div>
+        <div class="email-content">
+          <div class="email-subject">${msg.contact_name || 'Unknown Contact'}</div>
+          <div class="email-meta">
+            ${msg.company || 'Unknown Company'} • ${msg.message_type}
+            ${msg.sent_at ? ` • Sent ${formatRelativeTime(msg.sent_at)}` : ''}
+          </div>
+          <div class="message-preview">${truncateText(msg.message, 100)}</div>
+        </div>
+        <div class="email-actions">
+          ${msg.status === 'draft' ? `
+            <button class="btn btn-sm btn-primary" onclick="markMessageSent('${msg.id}')">Mark Sent</button>
+          ` : ''}
+          ${msg.status === 'sent' && !msg.replied_at ? `
+            <button class="btn btn-sm btn-success" onclick="markMessageReplied('${msg.id}')">Mark Replied</button>
+            <button class="btn btn-sm btn-secondary" onclick="createFollowUp('${msg.id}')">Follow Up</button>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function getMessageIcon(status) {
+  const icons = {
+    draft: '📝',
+    sent: '📤',
+    replied: '✅'
+  };
+  return icons[status] || '💬';
+}
+
+function truncateText(text, maxLength) {
+  if (!text) return '';
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength) + '...';
+}
+
+// Message Tab Clicks
+document.querySelectorAll('[data-msg-tab]').forEach(tab => {
+  tab.addEventListener('click', () => {
+    loadMessages(tab.dataset.msgTab);
+  });
+});
+
+// Message Modal Functions
+async function showComposeMessageModal() {
+  await loadContactsForMessageSelect();
+  await loadMessageTemplates();
+  document.getElementById('message-form').reset();
+  document.getElementById('message-id').value = '';
+  showModal('message-modal');
+}
+
+async function showComposeMessageModalFor(contactId) {
+  await loadContactsForMessageSelect();
+  await loadMessageTemplates();
+  document.getElementById('message-form').reset();
+  document.getElementById('message-id').value = '';
+  document.getElementById('message-contact').value = contactId;
+  showModal('message-modal');
+}
+
+async function loadContactsForMessageSelect() {
+  try {
+    const data = await fetchAPI('/contacts?limit=1000');
+    const select = document.getElementById('message-contact');
+    select.innerHTML = data.contacts
+      .map(c => `<option value="${c.id}">${c.full_name} ${c.company ? `(${c.company})` : ''}</option>`)
+      .join('');
+  } catch (error) {
+    console.error('Failed to load contacts:', error);
+  }
+}
+
+async function loadMessageTemplates() {
+  try {
+    messageTemplates = await fetchAPI('/messages/templates');
+    const select = document.getElementById('message-template');
+    select.innerHTML = `
+      <option value="">No template</option>
+      ${messageTemplates.map(t => `<option value="${t.id}">${t.name}</option>`).join('')}
+    `;
+  } catch (error) {
+    console.error('Failed to load message templates:', error);
+  }
+}
+
+// Template select for messages
+document.getElementById('message-template')?.addEventListener('change', async (e) => {
+  if (e.target.value) {
+    const template = messageTemplates.find(t => t.id === e.target.value);
+    if (template) {
+      document.getElementById('message-body').value = template.message;
+      document.getElementById('message-type').value = template.template_type;
+    }
+  }
+});
+
+// Message form submit
+document.getElementById('message-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  await sendMessage();
+});
+
+async function saveMessageDraft() {
+  const contactId = document.getElementById('message-contact').value;
+  const message = document.getElementById('message-body').value;
+  const messageType = document.getElementById('message-type').value;
+  const notes = document.getElementById('message-notes').value;
+
+  if (!contactId || !message) {
+    alert('Please select a contact and enter a message');
+    return;
+  }
+
+  try {
+    await fetchAPI('/messages', {
+      method: 'POST',
+      body: JSON.stringify({
+        contact_id: contactId,
+        message,
+        message_type: messageType,
+        notes
+      })
+    });
+
+    closeModal('message-modal');
+    loadMessages();
+  } catch (error) {
+    console.error('Failed to save draft:', error);
+    alert('Failed to save message draft');
+  }
+}
+
+async function sendMessage() {
+  const contactId = document.getElementById('message-contact').value;
+  const message = document.getElementById('message-body').value;
+  const messageType = document.getElementById('message-type').value;
+  const notes = document.getElementById('message-notes').value;
+
+  if (!contactId || !message) {
+    alert('Please select a contact and enter a message');
+    return;
+  }
+
+  try {
+    // Create message
+    const msg = await fetchAPI('/messages', {
+      method: 'POST',
+      body: JSON.stringify({
+        contact_id: contactId,
+        message,
+        message_type: messageType,
+        notes
+      })
+    });
+
+    // Mark as sent
+    await fetchAPI(`/messages/${msg.id}/send`, {
+      method: 'POST',
+      body: JSON.stringify({ follow_up_days: 3 })
+    });
+
+    closeModal('message-modal');
+    loadMessages();
+    loadDashboard();
+  } catch (error) {
+    console.error('Failed to send message:', error);
+    alert('Failed to send message');
+  }
+}
+
+async function markMessageSent(id) {
+  try {
+    await fetchAPI(`/messages/${id}/send`, {
+      method: 'POST',
+      body: JSON.stringify({ follow_up_days: 3 })
+    });
+    loadMessages(currentMessageTab);
+    loadMessageStats();
+  } catch (error) {
+    console.error('Failed to mark message as sent:', error);
+  }
+}
+
+async function markMessageReplied(id) {
+  try {
+    await fetchAPI(`/messages/${id}/replied`, { method: 'POST' });
+    loadMessages(currentMessageTab);
+    loadMessageStats();
+    loadDashboard();
+  } catch (error) {
+    console.error('Failed to mark message as replied:', error);
+  }
+}
+
+async function createFollowUp(id) {
+  try {
+    await fetchAPI(`/messages/${id}/follow-up`, {
+      method: 'POST',
+      body: JSON.stringify({ message: '' })
+    });
+    loadMessages(currentMessageTab);
+    alert('Follow-up message created as draft');
+  } catch (error) {
+    console.error('Failed to create follow-up:', error);
+  }
+}
+
+async function showMessageTemplatesModal() {
+  await loadMessageTemplates();
+
+  document.getElementById('message-templates-list').innerHTML = messageTemplates.map(t => `
+    <div class="template-item">
+      <div class="template-name">${t.name}</div>
+      <div class="template-subject">${t.template_type}</div>
+      <div class="template-preview">${truncateText(t.message, 150)}</div>
+    </div>
+  `).join('');
+
+  showModal('message-templates-modal');
+}
+
+function showNewMessageTemplateForm() {
+  // For simplicity, use a prompt - could be enhanced with a proper modal
+  const name = prompt('Template name:');
+  if (!name) return;
+
+  const message = prompt('Template message:');
+  if (!message) return;
+
+  const type = prompt('Template type (connection/outreach/followup):', 'outreach');
+
+  createMessageTemplate(name, message, type || 'outreach');
+}
+
+async function createMessageTemplate(name, message, templateType) {
+  try {
+    await fetchAPI('/messages/templates', {
+      method: 'POST',
+      body: JSON.stringify({ name, message, template_type: templateType })
+    });
+    showMessageTemplatesModal();
+  } catch (error) {
+    console.error('Failed to create template:', error);
+    alert('Failed to create template');
+  }
 }
 
 // Close modal on overlay click

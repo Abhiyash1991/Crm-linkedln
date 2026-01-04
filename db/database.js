@@ -196,6 +196,36 @@ async function initializeDatabase() {
     )
   `);
 
+  // LinkedIn Messages table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS linkedin_messages (
+      id TEXT PRIMARY KEY,
+      contact_id TEXT NOT NULL,
+      message_type TEXT DEFAULT 'outreach',
+      message TEXT NOT NULL,
+      status TEXT DEFAULT 'draft',
+      sent_at DATETIME,
+      replied_at DATETIME,
+      follow_up_date DATETIME,
+      follow_up_number INTEGER DEFAULT 0,
+      notes TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE
+    )
+  `);
+
+  // LinkedIn Message templates table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS message_templates (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      message TEXT NOT NULL,
+      template_type TEXT DEFAULT 'outreach',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // Insert default pipeline stages
   const stageCount = dbWrapper.prepare('SELECT COUNT(*) as count FROM pipeline_stages').get();
   if (stageCount.count === 0) {
@@ -246,6 +276,43 @@ Best,`, 'followup']
 
     for (const template of defaultTemplates) {
       db.run('INSERT INTO email_templates (id, name, subject, body, template_type) VALUES (?, ?, ?, ?, ?)', template);
+    }
+  }
+
+  // Insert default LinkedIn message templates
+  const msgTemplateCount = dbWrapper.prepare('SELECT COUNT(*) as count FROM message_templates').get();
+  if (msgTemplateCount.count === 0) {
+    const defaultMsgTemplates = [
+      ['msg_tpl_1', 'Connection Request', `Hi {{first_name}},
+
+I came across your profile and was impressed by your work at {{company}}. I'd love to connect and learn more about what you're working on.
+
+Looking forward to connecting!`, 'connection'],
+      ['msg_tpl_2', 'Initial Outreach', `Hi {{first_name}},
+
+Thanks for connecting! I noticed you're a {{title}} at {{company}} - that's really interesting.
+
+I'd love to learn more about your work. Would you be open to a quick chat sometime?
+
+Best regards`, 'outreach'],
+      ['msg_tpl_3', 'Follow-up Message', `Hi {{first_name}},
+
+I wanted to follow up on my previous message. I understand you're busy, but I thought it might be worth reconnecting.
+
+Would you have a few minutes to chat this week?
+
+Thanks!`, 'followup'],
+      ['msg_tpl_4', 'Thank You After Meeting', `Hi {{first_name}},
+
+Thank you for taking the time to chat with me today. I really enjoyed our conversation about {{company}}.
+
+Looking forward to staying in touch!
+
+Best,`, 'followup']
+    ];
+
+    for (const template of defaultMsgTemplates) {
+      db.run('INSERT INTO message_templates (id, name, message, template_type) VALUES (?, ?, ?, ?)', template);
     }
   }
 
