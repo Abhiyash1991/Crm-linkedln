@@ -1,11 +1,15 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../db/database');
+const dbPromise = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
 
+let db;
+dbPromise.then(database => { db = database; });
+
 // Get all emails with optional filtering
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
+    if (!db) db = await dbPromise;
     const { contact_id, status, type, limit = 100, offset = 0 } = req.query;
 
     let query = `
@@ -43,8 +47,9 @@ router.get('/', (req, res) => {
 });
 
 // Get emails due for follow-up
-router.get('/follow-ups', (req, res) => {
+router.get('/follow-ups', async (req, res) => {
   try {
+    if (!db) db = await dbPromise;
     const emails = db.prepare(`
       SELECT e.*, c.full_name as contact_name, c.company, c.email as contact_email
       FROM emails e
@@ -64,8 +69,9 @@ router.get('/follow-ups', (req, res) => {
 });
 
 // Get email templates
-router.get('/templates', (req, res) => {
+router.get('/templates', async (req, res) => {
   try {
+    if (!db) db = await dbPromise;
     const templates = db.prepare('SELECT * FROM email_templates ORDER BY created_at').all();
     res.json(templates);
   } catch (error) {
@@ -75,8 +81,9 @@ router.get('/templates', (req, res) => {
 });
 
 // Create email template
-router.post('/templates', (req, res) => {
+router.post('/templates', async (req, res) => {
   try {
+    if (!db) db = await dbPromise;
     const { name, subject, body, template_type = 'cold' } = req.body;
 
     if (!name || !subject || !body) {
@@ -98,8 +105,9 @@ router.post('/templates', (req, res) => {
 });
 
 // Create/queue email for contact
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   try {
+    if (!db) db = await dbPromise;
     const {
       contact_id,
       subject,
@@ -133,8 +141,9 @@ router.post('/', (req, res) => {
 });
 
 // Mark email as sent
-router.post('/:id/send', (req, res) => {
+router.post('/:id/send', async (req, res) => {
   try {
+    if (!db) db = await dbPromise;
     const { id } = req.params;
     const { follow_up_days = 3 } = req.body;
 
@@ -179,8 +188,9 @@ router.post('/:id/send', (req, res) => {
 });
 
 // Mark email as opened
-router.post('/:id/opened', (req, res) => {
+router.post('/:id/opened', async (req, res) => {
   try {
+    if (!db) db = await dbPromise;
     const { id } = req.params;
 
     const email = db.prepare('SELECT * FROM emails WHERE id = ?').get(id);
@@ -201,8 +211,9 @@ router.post('/:id/opened', (req, res) => {
 });
 
 // Mark email as replied
-router.post('/:id/replied', (req, res) => {
+router.post('/:id/replied', async (req, res) => {
   try {
+    if (!db) db = await dbPromise;
     const { id } = req.params;
 
     const email = db.prepare('SELECT * FROM emails WHERE id = ?').get(id);
@@ -238,8 +249,9 @@ router.post('/:id/replied', (req, res) => {
 });
 
 // Create follow-up email
-router.post('/:id/follow-up', (req, res) => {
+router.post('/:id/follow-up', async (req, res) => {
   try {
+    if (!db) db = await dbPromise;
     const { id } = req.params;
     const { subject, body, follow_up_days = 3 } = req.body;
 
@@ -268,8 +280,9 @@ router.post('/:id/follow-up', (req, res) => {
 });
 
 // Delete email
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
+    if (!db) db = await dbPromise;
     const { id } = req.params;
 
     const existing = db.prepare('SELECT * FROM emails WHERE id = ?').get(id);

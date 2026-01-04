@@ -1,11 +1,15 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../db/database');
+const dbPromise = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
 
+let db;
+dbPromise.then(database => { db = database; });
+
 // Get all contacts with optional filtering
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
+    if (!db) db = await dbPromise;
     const { stage, search, company, limit = 100, offset = 0 } = req.query;
 
     let query = 'SELECT * FROM contacts WHERE 1=1';
@@ -45,8 +49,9 @@ router.get('/', (req, res) => {
 });
 
 // Get single contact with activity history
-router.get('/:id', (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
+    if (!db) db = await dbPromise;
     const { id } = req.params;
 
     const contact = db.prepare('SELECT * FROM contacts WHERE id = ?').get(id);
@@ -80,8 +85,9 @@ router.get('/:id', (req, res) => {
 });
 
 // Create new contact
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   try {
+    if (!db) db = await dbPromise;
     const {
       first_name,
       last_name,
@@ -132,8 +138,9 @@ router.post('/', (req, res) => {
 });
 
 // Update contact
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
+    if (!db) db = await dbPromise;
     const { id } = req.params;
     const updates = req.body;
 
@@ -193,8 +200,9 @@ router.put('/:id', (req, res) => {
 });
 
 // Delete contact
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
+    if (!db) db = await dbPromise;
     const { id } = req.params;
 
     const existing = db.prepare('SELECT * FROM contacts WHERE id = ?').get(id);
@@ -211,8 +219,9 @@ router.delete('/:id', (req, res) => {
 });
 
 // Bulk update pipeline stage
-router.post('/bulk-stage', (req, res) => {
+router.post('/bulk-stage', async (req, res) => {
   try {
+    if (!db) db = await dbPromise;
     const { contact_ids, pipeline_stage } = req.body;
 
     if (!contact_ids || !Array.isArray(contact_ids) || contact_ids.length === 0) {
@@ -240,8 +249,9 @@ router.post('/bulk-stage', (req, res) => {
 });
 
 // Add note/activity to contact
-router.post('/:id/activities', (req, res) => {
+router.post('/:id/activities', async (req, res) => {
   try {
+    if (!db) db = await dbPromise;
     const { id } = req.params;
     const { activity_type, description, metadata } = req.body;
 

@@ -3,10 +3,13 @@ const router = express.Router();
 const multer = require('multer');
 const { parse } = require('csv-parse');
 const { stringify } = require('csv-stringify');
-const db = require('../db/database');
+const dbPromise = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
 const path = require('path');
+
+let db;
+dbPromise.then(database => { db = database; });
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -36,11 +39,11 @@ const upload = multer({
 // Import LinkedIn connections from CSV
 router.post('/linkedin', upload.single('file'), async (req, res) => {
   try {
+    if (!db) db = await dbPromise;
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const results = [];
     const errors = [];
     let imported = 0;
     let skipped = 0;
@@ -81,66 +84,58 @@ router.post('/linkedin', upload.single('file'), async (req, res) => {
       return null;
     };
 
-    const insertContact = db.prepare(`
-      INSERT INTO contacts (
-        id, first_name, last_name, full_name, email, linkedin_url,
-        company, title, pipeline_stage, source
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'lead', 'linkedin')
-    `);
+    for (const record of records) {
+      try {
+        const firstName = getValue(record, columnMappings.first_name);
+        const lastName = getValue(record, columnMappings.last_name);
+        const email = getValue(record, columnMappings.email);
+        const company = getValue(record, columnMappings.company);
+        const title = getValue(record, columnMappings.title);
+        const linkedinUrl = getValue(record, columnMappings.linkedin_url);
 
-    const checkExisting = db.prepare(`
-      SELECT id FROM contacts
-      WHERE (email = ? AND email IS NOT NULL AND email != '')
-         OR (linkedin_url = ? AND linkedin_url IS NOT NULL AND linkedin_url != '')
-         OR (full_name = ? AND company = ?)
-    `);
-
-    const insertMany = db.transaction((records) => {
-      for (const record of records) {
-        try {
-          const firstName = getValue(record, columnMappings.first_name);
-          const lastName = getValue(record, columnMappings.last_name);
-          const email = getValue(record, columnMappings.email);
-          const company = getValue(record, columnMappings.company);
-          const title = getValue(record, columnMappings.title);
-          const linkedinUrl = getValue(record, columnMappings.linkedin_url);
-
-          if (!firstName) {
-            skipped++;
-            continue;
-          }
-
-          const fullName = lastName ? `${firstName} ${lastName}` : firstName;
-
-          // Check for duplicates
-          const existing = checkExisting.get(email || '', linkedinUrl || '', fullName, company || '');
-          if (existing) {
-            skipped++;
-            continue;
-          }
-
-          const id = uuidv4();
-          insertContact.run(
-            id,
-            firstName,
-            lastName || null,
-            fullName,
-            email || null,
-            linkedinUrl || null,
-            company || null,
-            title || null
-          );
-
-          imported++;
-          results.push({ id, name: fullName, email, company });
-        } catch (err) {
-          errors.push({ record, error: err.message });
+        if (!firstName) {
           skipped++;
+          continue;
         }
-      }
-    });
 
-    insertMany(records);
+        const fullName = lastName ? `${firstName} ${lastName}` : firstName;
+
+        // Check for duplicates
+        const existing = db.prepare(`
+          SELECT id FROM contacts
+          WHERE (email = ? AND email IS NOT NULL AND email != '')
+             OR (linkedin_url = ? AND linkedin_url IS NOT NULL AND linkedin_url != '')
+             OR (full_name = ? AND company = ?)
+        `).get(email || '', linkedinUrl || '', fullName, company || '');
+
+        if (existing) {
+          skipped++;
+          continue;
+        }
+
+        const id = uuidv4();
+        db.prepare(`
+          INSERT INTO contacts (
+            id, first_name, last_name, full_name, email, linkedin_url,
+            company, title, pipeline_stage, source
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'lead', 'linkedin')
+        `).run(
+          id,
+          firstName,
+          lastName || null,
+          fullName,
+          email || null,
+          linkedinUrl || null,
+          company || null,
+          title || null
+        );
+
+        imported++;
+      } catch (err) {
+        errors.push({ record, error: err.message });
+        skipped++;
+      }
+    }
 
     // Clean up uploaded file
     fs.unlinkSync(req.file.path);
@@ -159,8 +154,9 @@ router.post('/linkedin', upload.single('file'), async (req, res) => {
 });
 
 // Export contacts to CSV
-router.get('/export', (req, res) => {
+router.get('/export', async (req, res) => {
   try {
+    if (!db) db = await dbPromise;
     const { stage, format = 'csv' } = req.query;
 
     let query = 'SELECT * FROM contacts';
@@ -215,56 +211,51 @@ router.get('/export', (req, res) => {
 });
 
 // Import from manual entry (JSON array)
-router.post('/bulk', (req, res) => {
+router.post('/bulk', async (req, res) => {
   try {
+    if (!db) db = await dbPromise;
     const { contacts } = req.body;
 
     if (!Array.isArray(contacts) || contacts.length === 0) {
       return res.status(400).json({ error: 'Contacts array is required' });
     }
 
-    const insertContact = db.prepare(`
-      INSERT INTO contacts (
-        id, first_name, last_name, full_name, email, linkedin_url,
-        company, title, location, phone, notes, tags, pipeline_stage, source
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
     let imported = 0;
     const results = [];
 
-    const insertMany = db.transaction((contactList) => {
-      for (const contact of contactList) {
-        if (!contact.first_name) continue;
+    for (const contact of contacts) {
+      if (!contact.first_name) continue;
 
-        const id = uuidv4();
-        const fullName = contact.last_name
-          ? `${contact.first_name} ${contact.last_name}`
-          : contact.first_name;
+      const id = uuidv4();
+      const fullName = contact.last_name
+        ? `${contact.first_name} ${contact.last_name}`
+        : contact.first_name;
 
-        insertContact.run(
-          id,
-          contact.first_name,
-          contact.last_name || null,
-          fullName,
-          contact.email || null,
-          contact.linkedin_url || null,
-          contact.company || null,
-          contact.title || null,
-          contact.location || null,
-          contact.phone || null,
-          contact.notes || null,
-          contact.tags || null,
-          contact.pipeline_stage || 'lead',
-          contact.source || 'manual'
-        );
+      db.prepare(`
+        INSERT INTO contacts (
+          id, first_name, last_name, full_name, email, linkedin_url,
+          company, title, location, phone, notes, tags, pipeline_stage, source
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        id,
+        contact.first_name,
+        contact.last_name || null,
+        fullName,
+        contact.email || null,
+        contact.linkedin_url || null,
+        contact.company || null,
+        contact.title || null,
+        contact.location || null,
+        contact.phone || null,
+        contact.notes || null,
+        contact.tags || null,
+        contact.pipeline_stage || 'lead',
+        contact.source || 'manual'
+      );
 
-        imported++;
-        results.push({ id, name: fullName });
-      }
-    });
-
-    insertMany(contacts);
+      imported++;
+      results.push({ id, name: fullName });
+    }
 
     res.json({
       success: true,

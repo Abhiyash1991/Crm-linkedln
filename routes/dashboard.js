@@ -1,10 +1,15 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../db/database');
+const dbPromise = require('../db/database');
+
+let db;
+dbPromise.then(database => { db = database; });
 
 // Get dashboard statistics
-router.get('/stats', (req, res) => {
+router.get('/stats', async (req, res) => {
   try {
+    if (!db) db = await dbPromise;
+
     // Total contacts
     const totalContacts = db.prepare('SELECT COUNT(*) as count FROM contacts').get();
 
@@ -102,8 +107,10 @@ router.get('/stats', (req, res) => {
 });
 
 // Get upcoming tasks/follow-ups
-router.get('/tasks', (req, res) => {
+router.get('/tasks', async (req, res) => {
   try {
+    if (!db) db = await dbPromise;
+
     const followups = db.prepare(`
       SELECT
         e.id,
@@ -152,8 +159,10 @@ router.get('/tasks', (req, res) => {
 });
 
 // Get contacts for quick actions
-router.get('/quick-contacts', (req, res) => {
+router.get('/quick-contacts', async (req, res) => {
   try {
+    if (!db) db = await dbPromise;
+
     // Recent contacts
     const recent = db.prepare(`
       SELECT id, full_name, email, company, pipeline_stage

@@ -15,33 +15,44 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Import routes
-const contactsRouter = require('./routes/contacts');
-const emailsRouter = require('./routes/emails');
-const pipelineRouter = require('./routes/pipeline');
-const importRouter = require('./routes/import');
-const dashboardRouter = require('./routes/dashboard');
+// Initialize database and start server
+async function startServer() {
+  // Wait for database to initialize
+  const db = await require('./db/database');
 
-// API Routes
-app.use('/api/contacts', contactsRouter);
-app.use('/api/emails', emailsRouter);
-app.use('/api/pipeline', pipelineRouter);
-app.use('/api/import', importRouter);
-app.use('/api/dashboard', dashboardRouter);
+  // Import routes (they will use the initialized db)
+  const contactsRouter = require('./routes/contacts');
+  const emailsRouter = require('./routes/emails');
+  const pipelineRouter = require('./routes/pipeline');
+  const importRouter = require('./routes/import');
+  const dashboardRouter = require('./routes/dashboard');
 
-// Serve the main page
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+  // API Routes
+  app.use('/api/contacts', contactsRouter);
+  app.use('/api/emails', emailsRouter);
+  app.use('/api/pipeline', pipelineRouter);
+  app.use('/api/import', importRouter);
+  app.use('/api/dashboard', dashboardRouter);
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Something went wrong!' });
-});
+  // Serve the main page
+  app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 LinkedIn CRM Pipeline running at http://localhost:${PORT}`);
-  console.log(`📊 Dashboard: http://localhost:${PORT}`);
+  // Error handling middleware
+  app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).json({ error: 'Something went wrong!' });
+  });
+
+  // Start server
+  app.listen(PORT, () => {
+    console.log(`🚀 LinkedIn CRM Pipeline running at http://localhost:${PORT}`);
+    console.log(`📊 Dashboard: http://localhost:${PORT}`);
+  });
+}
+
+startServer().catch(err => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
 });

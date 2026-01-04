@@ -1,11 +1,15 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../db/database');
+const dbPromise = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
 
+let db;
+dbPromise.then(database => { db = database; });
+
 // Get all pipeline stages with contact counts
-router.get('/stages', (req, res) => {
+router.get('/stages', async (req, res) => {
   try {
+    if (!db) db = await dbPromise;
     const stages = db.prepare(`
       SELECT
         ps.*,
@@ -24,8 +28,9 @@ router.get('/stages', (req, res) => {
 });
 
 // Get pipeline view (contacts grouped by stage)
-router.get('/view', (req, res) => {
+router.get('/view', async (req, res) => {
   try {
+    if (!db) db = await dbPromise;
     const stages = db.prepare('SELECT * FROM pipeline_stages ORDER BY display_order').all();
 
     const pipeline = stages.map(stage => {
@@ -49,8 +54,9 @@ router.get('/view', (req, res) => {
 });
 
 // Move contact to different stage
-router.post('/move', (req, res) => {
+router.post('/move', async (req, res) => {
   try {
+    if (!db) db = await dbPromise;
     const { contact_id, from_stage, to_stage } = req.body;
 
     if (!contact_id || !to_stage) {
@@ -90,8 +96,9 @@ router.post('/move', (req, res) => {
 });
 
 // Create custom pipeline stage
-router.post('/stages', (req, res) => {
+router.post('/stages', async (req, res) => {
   try {
+    if (!db) db = await dbPromise;
     const { name, color = '#6366f1' } = req.body;
 
     if (!name) {
@@ -117,8 +124,9 @@ router.post('/stages', (req, res) => {
 });
 
 // Update pipeline stage
-router.put('/stages/:id', (req, res) => {
+router.put('/stages/:id', async (req, res) => {
   try {
+    if (!db) db = await dbPromise;
     const { id } = req.params;
     const { name, color, display_order } = req.body;
 
@@ -164,8 +172,9 @@ router.put('/stages/:id', (req, res) => {
 });
 
 // Delete pipeline stage
-router.delete('/stages/:id', (req, res) => {
+router.delete('/stages/:id', async (req, res) => {
   try {
+    if (!db) db = await dbPromise;
     const { id } = req.params;
     const { move_to_stage } = req.body;
 
@@ -197,23 +206,18 @@ router.delete('/stages/:id', (req, res) => {
 });
 
 // Reorder stages
-router.post('/stages/reorder', (req, res) => {
+router.post('/stages/reorder', async (req, res) => {
   try {
+    if (!db) db = await dbPromise;
     const { stage_order } = req.body;
 
     if (!Array.isArray(stage_order)) {
       return res.status(400).json({ error: 'stage_order must be an array of stage IDs' });
     }
 
-    const updateOrder = db.prepare('UPDATE pipeline_stages SET display_order = ? WHERE id = ?');
-
-    const reorder = db.transaction((orders) => {
-      orders.forEach((stageId, index) => {
-        updateOrder.run(index + 1, stageId);
-      });
+    stage_order.forEach((stageId, index) => {
+      db.prepare('UPDATE pipeline_stages SET display_order = ? WHERE id = ?').run(index + 1, stageId);
     });
-
-    reorder(stage_order);
 
     const stages = db.prepare('SELECT * FROM pipeline_stages ORDER BY display_order').all();
     res.json(stages);

@@ -1,4 +1,4 @@
-const Database = require('better-sqlite3');
+const initSqlJs = require('sql.js');
 const path = require('path');
 const fs = require('fs');
 
@@ -9,15 +9,101 @@ if (!fs.existsSync(dataDir)) {
 }
 
 const dbPath = process.env.DATABASE_PATH || path.join(dataDir, 'crm.db');
-const db = new Database(dbPath);
 
-// Enable foreign keys
-db.pragma('foreign_keys = ON');
+let db = null;
+let SQL = null;
 
-// Initialize database schema
-function initializeDatabase() {
-  // Contacts table - stores LinkedIn connections
-  db.exec(`
+// Helper to save database to file
+function saveDatabase() {
+  if (db) {
+    const data = db.export();
+    const buffer = Buffer.from(data);
+    fs.writeFileSync(dbPath, buffer);
+  }
+}
+
+// Auto-save every 5 seconds
+setInterval(() => {
+  saveDatabase();
+}, 5000);
+
+// Save on exit
+process.on('exit', saveDatabase);
+process.on('SIGINT', () => {
+  saveDatabase();
+  process.exit();
+});
+
+// Database wrapper to provide similar API to better-sqlite3
+const dbWrapper = {
+  exec(sql) {
+    db.run(sql);
+    saveDatabase();
+  },
+
+  prepare(sql) {
+    return {
+      run(...params) {
+        db.run(sql, params);
+        saveDatabase();
+        return { changes: db.getRowsModified() };
+      },
+      get(...params) {
+        const stmt = db.prepare(sql);
+        stmt.bind(params);
+        if (stmt.step()) {
+          const row = stmt.getAsObject();
+          stmt.free();
+          return row;
+        }
+        stmt.free();
+        return undefined;
+      },
+      all(...params) {
+        const results = [];
+        const stmt = db.prepare(sql);
+        stmt.bind(params);
+        while (stmt.step()) {
+          results.push(stmt.getAsObject());
+        }
+        stmt.free();
+        return results;
+      }
+    };
+  },
+
+  transaction(fn) {
+    return (...args) => {
+      db.run('BEGIN TRANSACTION');
+      try {
+        fn(...args);
+        db.run('COMMIT');
+        saveDatabase();
+      } catch (e) {
+        db.run('ROLLBACK');
+        throw e;
+      }
+    };
+  }
+};
+
+// Initialize database
+async function initializeDatabase() {
+  SQL = await initSqlJs();
+
+  // Load existing database or create new one
+  if (fs.existsSync(dbPath)) {
+    const fileBuffer = fs.readFileSync(dbPath);
+    db = new SQL.Database(fileBuffer);
+  } else {
+    db = new SQL.Database();
+  }
+
+  // Enable foreign keys
+  db.run('PRAGMA foreign_keys = ON');
+
+  // Contacts table
+  db.run(`
     CREATE TABLE IF NOT EXISTS contacts (
       id TEXT PRIMARY KEY,
       first_name TEXT NOT NULL,
@@ -40,7 +126,7 @@ function initializeDatabase() {
   `);
 
   // Email campaigns table
-  db.exec(`
+  db.run(`
     CREATE TABLE IF NOT EXISTS email_campaigns (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -52,8 +138,8 @@ function initializeDatabase() {
     )
   `);
 
-  // Email tracking table - tracks cold emails and follow-ups
-  db.exec(`
+  // Emails table
+  db.run(`
     CREATE TABLE IF NOT EXISTS emails (
       id TEXT PRIMARY KEY,
       contact_id TEXT NOT NULL,
@@ -73,8 +159,8 @@ function initializeDatabase() {
     )
   `);
 
-  // Activities table - logs all interactions
-  db.exec(`
+  // Activities table
+  db.run(`
     CREATE TABLE IF NOT EXISTS activities (
       id TEXT PRIMARY KEY,
       contact_id TEXT NOT NULL,
@@ -86,8 +172,8 @@ function initializeDatabase() {
     )
   `);
 
-  // Pipeline stages configuration
-  db.exec(`
+  // Pipeline stages table
+  db.run(`
     CREATE TABLE IF NOT EXISTS pipeline_stages (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL UNIQUE,
@@ -97,34 +183,8 @@ function initializeDatabase() {
     )
   `);
 
-  // Insert default pipeline stages if not exists
-  const stageCount = db.prepare('SELECT COUNT(*) as count FROM pipeline_stages').get();
-  if (stageCount.count === 0) {
-    const insertStage = db.prepare(`
-      INSERT INTO pipeline_stages (id, name, display_order, color) VALUES (?, ?, ?, ?)
-    `);
-
-    const defaultStages = [
-      ['stage_1', 'Lead', 1, '#6366f1'],
-      ['stage_2', 'Contacted', 2, '#f59e0b'],
-      ['stage_3', 'Responded', 3, '#10b981'],
-      ['stage_4', 'Meeting Scheduled', 4, '#3b82f6'],
-      ['stage_5', 'Negotiating', 5, '#8b5cf6'],
-      ['stage_6', 'Won', 6, '#22c55e'],
-      ['stage_7', 'Lost', 7, '#ef4444']
-    ];
-
-    const insertMany = db.transaction((stages) => {
-      for (const stage of stages) {
-        insertStage.run(...stage);
-      }
-    });
-
-    insertMany(defaultStages);
-  }
-
   // Email templates table
-  db.exec(`
+  db.run(`
     CREATE TABLE IF NOT EXISTS email_templates (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -136,68 +196,64 @@ function initializeDatabase() {
     )
   `);
 
-  // Insert default email templates if not exists
-  const templateCount = db.prepare('SELECT COUNT(*) as count FROM email_templates').get();
-  if (templateCount.count === 0) {
-    const insertTemplate = db.prepare(`
-      INSERT INTO email_templates (id, name, subject, body, template_type) VALUES (?, ?, ?, ?, ?)
-    `);
+  // Insert default pipeline stages
+  const stageCount = dbWrapper.prepare('SELECT COUNT(*) as count FROM pipeline_stages').get();
+  if (stageCount.count === 0) {
+    const defaultStages = [
+      ['stage_1', 'Lead', 1, '#6366f1'],
+      ['stage_2', 'Contacted', 2, '#f59e0b'],
+      ['stage_3', 'Responded', 3, '#10b981'],
+      ['stage_4', 'Meeting Scheduled', 4, '#3b82f6'],
+      ['stage_5', 'Negotiating', 5, '#8b5cf6'],
+      ['stage_6', 'Won', 6, '#22c55e'],
+      ['stage_7', 'Lost', 7, '#ef4444']
+    ];
 
+    for (const stage of defaultStages) {
+      db.run('INSERT INTO pipeline_stages (id, name, display_order, color) VALUES (?, ?, ?, ?)', stage);
+    }
+  }
+
+  // Insert default email templates
+  const templateCount = dbWrapper.prepare('SELECT COUNT(*) as count FROM email_templates').get();
+  if (templateCount.count === 0) {
     const defaultTemplates = [
-      [
-        'tpl_1',
-        'Initial Outreach',
-        'Quick question about {{company}}',
+      ['tpl_1', 'Initial Outreach', 'Quick question about {{company}}',
         `Hi {{first_name}},
 
 I noticed you're working as {{title}} at {{company}} and wanted to reach out.
 
 I'd love to connect and learn more about what you're working on. Would you be open to a quick chat?
 
-Best regards`,
-        'cold'
-      ],
-      [
-        'tpl_2',
-        'Follow-up #1',
-        'Following up - {{company}}',
+Best regards`, 'cold'],
+      ['tpl_2', 'Follow-up #1', 'Following up - {{company}}',
         `Hi {{first_name}},
 
 I wanted to follow up on my previous email. I understand you're busy, but I thought it might be worth reconnecting.
 
 Would you have 15 minutes this week for a quick call?
 
-Thanks!`,
-        'followup'
-      ],
-      [
-        'tpl_3',
-        'Follow-up #2',
-        'One last try - {{first_name}}',
+Thanks!`, 'followup'],
+      ['tpl_3', 'Follow-up #2', 'One last try - {{first_name}}',
         `Hi {{first_name}},
 
 I don't want to be a pest, so this will be my last email.
 
 If now isn't a good time, no worries at all. Feel free to reach out whenever makes sense.
 
-Best,`,
-        'followup'
-      ]
+Best,`, 'followup']
     ];
 
-    const insertManyTemplates = db.transaction((templates) => {
-      for (const template of templates) {
-        insertTemplate.run(...template);
-      }
-    });
-
-    insertManyTemplates(defaultTemplates);
+    for (const template of defaultTemplates) {
+      db.run('INSERT INTO email_templates (id, name, subject, body, template_type) VALUES (?, ?, ?, ?, ?)', template);
+    }
   }
 
+  saveDatabase();
   console.log('✅ Database initialized successfully');
+
+  return dbWrapper;
 }
 
-// Initialize on module load
-initializeDatabase();
-
-module.exports = db;
+// Export a promise that resolves to the db wrapper
+module.exports = initializeDatabase();
