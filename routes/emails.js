@@ -110,6 +110,9 @@ router.post('/', async (req, res) => {
     if (!db) db = await dbPromise;
     const {
       contact_id,
+      manual_email,
+      manual_name,
+      manual_company,
       subject,
       body,
       email_type = 'cold',
@@ -117,11 +120,46 @@ router.post('/', async (req, res) => {
       follow_up_number = 0
     } = req.body;
 
-    if (!contact_id || !subject) {
-      return res.status(400).json({ error: 'Contact ID and subject are required' });
+    if (!subject) {
+      return res.status(400).json({ error: 'Subject is required' });
     }
 
-    const contact = db.prepare('SELECT * FROM contacts WHERE id = ?').get(contact_id);
+    let finalContactId = contact_id;
+
+    // Handle manual email entry - create or find contact
+    if (manual_email && !contact_id) {
+      // Check if contact with this email exists
+      let contact = db.prepare('SELECT * FROM contacts WHERE email = ?').get(manual_email);
+
+      if (!contact) {
+        // Create new contact
+        const newContactId = uuidv4();
+        const firstName = manual_name ? manual_name.split(' ')[0] : manual_email.split('@')[0];
+        const lastName = manual_name ? manual_name.split(' ').slice(1).join(' ') : null;
+        const fullName = manual_name || manual_email.split('@')[0];
+
+        db.prepare(`
+          INSERT INTO contacts (id, first_name, last_name, full_name, email, company, pipeline_stage, source)
+          VALUES (?, ?, ?, ?, ?, ?, 'Lead', 'email')
+        `).run(newContactId, firstName, lastName, fullName, manual_email, manual_company || null);
+
+        // Log activity
+        db.prepare(`
+          INSERT INTO activities (id, contact_id, activity_type, description)
+          VALUES (?, ?, 'created', 'Contact created from email compose')
+        `).run(uuidv4(), newContactId);
+
+        finalContactId = newContactId;
+      } else {
+        finalContactId = contact.id;
+      }
+    }
+
+    if (!finalContactId) {
+      return res.status(400).json({ error: 'Contact ID or manual email is required' });
+    }
+
+    const contact = db.prepare('SELECT * FROM contacts WHERE id = ?').get(finalContactId);
     if (!contact) {
       return res.status(404).json({ error: 'Contact not found' });
     }
@@ -130,7 +168,7 @@ router.post('/', async (req, res) => {
     db.prepare(`
       INSERT INTO emails (id, contact_id, subject, body, email_type, follow_up_date, follow_up_number, status)
       VALUES (?, ?, ?, ?, ?, ?, ?, 'draft')
-    `).run(id, contact_id, subject, body || '', email_type, follow_up_date || null, follow_up_number);
+    `).run(id, finalContactId, subject, body || '', email_type, follow_up_date || null, follow_up_number);
 
     const email = db.prepare('SELECT * FROM emails WHERE id = ?').get(id);
     res.status(201).json(email);
@@ -168,8 +206,8 @@ router.post('/:id/send', async (req, res) => {
     if (email.email_type === 'cold') {
       db.prepare(`
         UPDATE contacts
-        SET pipeline_stage = 'contacted', updated_at = CURRENT_TIMESTAMP
-        WHERE id = ? AND pipeline_stage = 'lead'
+        SET pipeline_stage = 'Contacted', updated_at = CURRENT_TIMESTAMP
+        WHERE id = ? AND pipeline_stage = 'Lead'
       `).run(email.contact_id);
     }
 
@@ -230,8 +268,8 @@ router.post('/:id/replied', async (req, res) => {
     // Update contact stage
     db.prepare(`
       UPDATE contacts
-      SET pipeline_stage = 'responded', updated_at = CURRENT_TIMESTAMP
-      WHERE id = ? AND pipeline_stage IN ('lead', 'contacted')
+      SET pipeline_stage = 'Responded', updated_at = CURRENT_TIMESTAMP
+      WHERE id = ? AND pipeline_stage IN ('Lead', 'Contacted')
     `).run(email.contact_id);
 
     // Log activity

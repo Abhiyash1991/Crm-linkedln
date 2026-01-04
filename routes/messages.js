@@ -168,8 +168,8 @@ router.post('/:id/send', async (req, res) => {
     if (message.message_type === 'outreach' || message.message_type === 'connection') {
       db.prepare(`
         UPDATE contacts
-        SET pipeline_stage = 'contacted', updated_at = CURRENT_TIMESTAMP
-        WHERE id = ? AND pipeline_stage = 'lead'
+        SET pipeline_stage = 'Contacted', updated_at = CURRENT_TIMESTAMP
+        WHERE id = ? AND pipeline_stage = 'Lead'
       `).run(message.contact_id);
     }
 
@@ -207,8 +207,8 @@ router.post('/:id/replied', async (req, res) => {
     // Update contact stage
     db.prepare(`
       UPDATE contacts
-      SET pipeline_stage = 'responded', updated_at = CURRENT_TIMESTAMP
-      WHERE id = ? AND pipeline_stage IN ('lead', 'contacted')
+      SET pipeline_stage = 'Responded', updated_at = CURRENT_TIMESTAMP
+      WHERE id = ? AND pipeline_stage IN ('Lead', 'Contacted')
     `).run(message.contact_id);
 
     // Log activity
@@ -346,7 +346,7 @@ router.get('/stats', async (req, res) => {
       replied: stats.replied || 0,
       drafts: stats.drafts || 0,
       pending_followups: pendingFollowups.count || 0,
-      reply_rate: stats.sent > 0 ? ((stats.replied / stats.sent) * 100).toFixed(1) : 0
+      reply_rate: stats.sent > 0 ? Math.round((stats.replied / stats.sent) * 100) : 0
     });
   } catch (error) {
     console.error('Error fetching stats:', error);

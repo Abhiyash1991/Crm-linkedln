@@ -118,7 +118,7 @@ router.post('/linkedin', upload.single('file'), async (req, res) => {
           INSERT INTO contacts (
             id, first_name, last_name, full_name, email, linkedin_url,
             company, title, pipeline_stage, source
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'lead', 'linkedin')
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Lead', 'linkedin')
         `).run(
           id,
           firstName,
@@ -249,7 +249,7 @@ router.post('/bulk', async (req, res) => {
         contact.phone || null,
         contact.notes || null,
         contact.tags || null,
-        contact.pipeline_stage || 'lead',
+        contact.pipeline_stage || 'Lead',
         contact.source || 'manual'
       );
 

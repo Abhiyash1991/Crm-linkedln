@@ -693,10 +693,29 @@ async function showContactDetail(id) {
 }
 
 // Email Functions
+let emailMode = 'contact'; // 'contact' or 'manual'
+
+function toggleEmailMode(mode) {
+  emailMode = mode;
+  const contactGroup = document.getElementById('contact-select-group');
+  const manualGroup = document.getElementById('manual-email-group');
+
+  if (mode === 'contact') {
+    contactGroup.classList.remove('hidden');
+    manualGroup.classList.add('hidden');
+  } else {
+    contactGroup.classList.add('hidden');
+    manualGroup.classList.remove('hidden');
+  }
+}
+
 async function showComposeModal() {
   await loadContactsForSelect();
   await loadTemplates();
   document.getElementById('compose-form').reset();
+  emailMode = 'contact';
+  document.querySelector('input[name="email-mode"][value="contact"]').checked = true;
+  toggleEmailMode('contact');
   showModal('compose-modal');
 }
 
@@ -704,6 +723,9 @@ async function showComposeModalFor(contactId) {
   await loadContactsForSelect();
   await loadTemplates();
   document.getElementById('compose-form').reset();
+  emailMode = 'contact';
+  document.querySelector('input[name="email-mode"][value="contact"]').checked = true;
+  toggleEmailMode('contact');
   document.getElementById('email-contact').value = contactId;
   showModal('compose-modal');
 }
@@ -712,9 +734,9 @@ async function loadContactsForSelect() {
   try {
     const data = await fetchAPI('/contacts?limit=1000');
     const select = document.getElementById('email-contact');
+    // Show all contacts, not just those with email
     select.innerHTML = data.contacts
-      .filter(c => c.email)
-      .map(c => `<option value="${c.id}">${c.full_name} (${c.email})</option>`)
+      .map(c => `<option value="${c.id}">${c.full_name}${c.email ? ` (${c.email})` : ' (no email)'}${c.company ? ` - ${c.company}` : ''}</option>`)
       .join('');
   } catch (error) {
     console.error('Failed to load contacts:', error);
@@ -734,13 +756,41 @@ async function loadTemplates() {
   }
 }
 
-async function saveEmailDraft() {
-  const contactId = document.getElementById('email-contact').value;
+function getEmailData() {
   const subject = document.getElementById('email-subject').value;
   const body = document.getElementById('email-body').value;
 
-  if (!contactId || !subject) {
-    alert('Please select a contact and enter a subject');
+  if (emailMode === 'contact') {
+    const contactId = document.getElementById('email-contact').value;
+    if (!contactId) {
+      return { error: 'Please select a contact' };
+    }
+    return { contact_id: contactId, subject, body };
+  } else {
+    const email = document.getElementById('manual-email').value;
+    const name = document.getElementById('manual-name').value;
+    const company = document.getElementById('manual-company').value;
+    if (!email) {
+      return { error: 'Please enter an email address' };
+    }
+    // Basic email validation
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return { error: 'Please enter a valid email address' };
+    }
+    return { manual_email: email, manual_name: name, manual_company: company, subject, body };
+  }
+}
+
+async function saveEmailDraft() {
+  const data = getEmailData();
+
+  if (data.error) {
+    alert(data.error);
+    return;
+  }
+
+  if (!data.subject) {
+    alert('Please enter a subject');
     return;
   }
 
@@ -748,15 +798,14 @@ async function saveEmailDraft() {
     await fetchAPI('/emails', {
       method: 'POST',
       body: JSON.stringify({
-        contact_id: contactId,
-        subject,
-        body,
+        ...data,
         email_type: 'cold'
       })
     });
 
     closeModal('compose-modal');
     loadEmails();
+    loadContacts(); // Refresh in case new contact was created
   } catch (error) {
     console.error('Failed to save draft:', error);
     alert('Failed to save email draft');
@@ -764,12 +813,15 @@ async function saveEmailDraft() {
 }
 
 async function sendEmail() {
-  const contactId = document.getElementById('email-contact').value;
-  const subject = document.getElementById('email-subject').value;
-  const body = document.getElementById('email-body').value;
+  const data = getEmailData();
 
-  if (!contactId || !subject) {
-    alert('Please select a contact and enter a subject');
+  if (data.error) {
+    alert(data.error);
+    return;
+  }
+
+  if (!data.subject) {
+    alert('Please enter a subject');
     return;
   }
 
@@ -778,9 +830,7 @@ async function sendEmail() {
     const email = await fetchAPI('/emails', {
       method: 'POST',
       body: JSON.stringify({
-        contact_id: contactId,
-        subject,
-        body,
+        ...data,
         email_type: 'cold'
       })
     });
@@ -794,6 +844,7 @@ async function sendEmail() {
     closeModal('compose-modal');
     loadEmails();
     loadDashboard();
+    loadContacts(); // Refresh in case new contact was created
   } catch (error) {
     console.error('Failed to send email:', error);
     alert('Failed to send email');

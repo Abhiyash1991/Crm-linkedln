@@ -415,8 +415,33 @@
     </div>
     <form id="compose-form">
       <div class="form-group">
-        <label for="email-contact">To (Contact)</label>
-        <select id="email-contact" class="select" required></select>
+        <label>Send To</label>
+        <div class="radio-group">
+          <label class="radio-label">
+            <input type="radio" name="email-mode" value="contact" checked onchange="toggleEmailMode('contact')">
+            Select Contact
+          </label>
+          <label class="radio-label">
+            <input type="radio" name="email-mode" value="manual" onchange="toggleEmailMode('manual')">
+            Enter Email Manually
+          </label>
+        </div>
+      </div>
+      <div class="form-group" id="contact-select-group">
+        <label for="email-contact">Contact</label>
+        <select id="email-contact" class="select"></select>
+      </div>
+      <div class="form-group hidden" id="manual-email-group">
+        <label for="manual-email">Email Address *</label>
+        <input type="email" id="manual-email" placeholder="recipient@example.com">
+        <div class="form-row" style="margin-top: 0.5rem;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <input type="text" id="manual-name" placeholder="Recipient Name (optional)">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <input type="text" id="manual-company" placeholder="Company (optional)">
+          </div>
+        </div>
       </div>
       <div class="form-group">
         <label for="email-template">Template</label>

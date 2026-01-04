@@ -99,7 +99,7 @@ router.post('/', async (req, res) => {
       phone,
       notes,
       tags,
-      pipeline_stage = 'lead',
+      pipeline_stage = 'Lead',
       source = 'linkedin'
     } = req.body;
 
